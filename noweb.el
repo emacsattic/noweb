@@ -1,11 +1,11 @@
 ;;; noweb.el --- noweb mode for literate programming
 
-;; Copyright (C) 2003  Free Software Foundation, Inc.
+;; Copyright (C) 2003, 2004  Free Software Foundation, Inc.
 
 ;; Author: Dave Love <fx@gnu.org>
 ;; Keywords: languages, tools
 ;; Created: Oct 2003
-;; $Revision: 1.6 $
+;; $Revision: 1.8 $
 ;; URL: http://www.loveshack.ukfsn.org/emacs
 
 ;; This file is free software; you can redistribute it and/or modify
@@ -73,12 +73,14 @@
   :type 'function
   :group 'noweb)
 (make-variable-buffer-local 'noweb-doc-mode)
+(put 'noweb-code-mode 'safe-local-variable 'multi-mode-major-mode-p)
 
 (defcustom noweb-code-mode 'fundamental-mode
   "Major mode for code chunks."
   :type 'function
   :group 'noweb)
 (make-variable-buffer-local 'noweb-code-mode)
+(put 'noweb-code-mode 'safe-local-variable 'multi-mode-major-mode-p)
 
 (defcustom noweb-select-code-mode-hook nil
   "Hook run after the code mode is selected."
@@ -226,9 +228,9 @@ Supports differnt major modes for doc and code chunks using multi-mode."
   ;; `mode: noweb' line to avoid infinite regress.
   (flet ((noweb-mode ()))
     (hack-local-variables)
-    (let ((multi-alist (list (cons 'noweb-mode #'noweb-select-mode)
-			     (cons noweb-doc-mode nil)
-			     (cons noweb-code-mode nil))))
+    (let ((multi-mode-alist (list (cons 'noweb-mode #'noweb-select-mode)
+				  (cons noweb-doc-mode nil)
+				  (cons noweb-code-mode nil))))
       (multi-mode-install-modes)))
   (let ((noweb-doc-buffer (cdr (assq noweb-doc-mode
 				     multi-indirect-buffers-alist)))
@@ -268,6 +270,9 @@ Supports differnt major modes for doc and code chunks using multi-mode."
 	 noweb-imenu-generic-expression)
     (set (make-local-variable 'font-lock-defaults)
 	 '(noweb-font-lock-keywords nil nil nil nil))
+    ;; Fixme:  Why is this is necessary in Emacs 22+ to get
+    ;; font-lock-keywords defined?
+    (font-lock-set-defaults)
     ;; Single level of outline.
     (set (make-local-variable 'outline-regexp)
 	 noweb-chunk-header-pattern)
@@ -275,7 +280,7 @@ Supports differnt major modes for doc and code chunks using multi-mode."
     (imenu-add-menubar-index)))
 
 (defun noweb-select-mode (pos)
-  "Mode-selecting function for use in `multi-alist'."
+  "Mode-selecting function for use in `multi-mode-alist'."
   (save-excursion
     (save-restriction
       (goto-char pos)
@@ -290,10 +295,10 @@ Supports differnt major modes for doc and code chunks using multi-mode."
 	  (let (start)
 	    (while (looking-at "@ +%def")
 	      (setq start (match-beginning 0))
-	      (previous-line 1))
-	    (next-line 1)
+	      (forward-line -1))
+	    (forward-line)
 	    (while (looking-at "@ +%def")
-	      (next-line 1))
+	      (forward-line))
 	    (multi-make-list 'noweb-mode start (line-end-position 0))))
 	 (t 
 	  ;; Else start of a doc chunk.  Mode is doc unless we're at bol.
